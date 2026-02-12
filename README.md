@@ -1,36 +1,138 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Smart Bookmark App
 
-## Getting Started
+Production-style bookmark manager built for interview assignment.
 
-First, run the development server:
+## Live Scope
+- Google OAuth login (Supabase Auth)
+- Protected dashboard
+- Add bookmark (`title` + `url`)
+- Delete bookmark
+- Private user data with Supabase RLS
+- Real-time updates across tabs
+- Responsive UI
+- Dark/Light theme (persisted in `localStorage`)
+- Form validation with Zod + React Hook Form
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Tech Stack
+- Next.js (App Router) + TypeScript
+- Tailwind CSS v4
+- Supabase (`@supabase/supabase-js`, `@supabase/ssr`)
+- React Hook Form + Zod
+- Sonner (toast notifications)
+
+## Project Structure
+```txt
+app/
+  auth/callback/route.ts
+  dashboard/
+  login/
+components/
+  auth/
+  dashboard/
+  providers/
+  theme/
+hooks/
+lib/
+  supabase/
+  validators/
+services/
+supabase/
+  migrations/
+  schema.sql
+types/
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
+Create `.env.local` (or `.env`) with:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Setup
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+## Supabase Database Setup
+This project uses SQL migrations in `supabase/migrations`.
 
-To learn more about Next.js, take a look at the following resources:
+### Option A: Dashboard SQL Editor
+Run:
+- `supabase/migrations/20260212172837_create_bookmarks_table.sql` (or latest migration)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Option B: Supabase CLI
+```bash
+npx -y supabase login
+npm run db:link -- --project-ref <your-project-ref>
+npm run db:push
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## NPM Scripts
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+npm run db:status
+npm run db:link -- --project-ref <project-ref>
+npm run db:push
+npm run db:new -- <migration_name>
+```
 
-## Deploy on Vercel
+## Security Notes
+- RLS enabled on `public.bookmarks`
+- Policies restrict `select`, `insert`, `delete` to `auth.uid() = user_id`
+- No service role key exposed in frontend
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Real-time Behavior
+- Supabase Realtime subscription listens on `public.bookmarks`
+- Includes tab-sync fallback using `BroadcastChannel`
+- Add/delete actions update current tab and other tabs without refresh
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Problems Faced and How I Solved Them
+
+1. **Supabase client error: missing URL/API key**
+- Problem: Browser client showed missing env vars even though values existed.
+- Cause: Dynamic env access (`process.env[key]`) can fail for client bundling.
+- Fix: Switched to direct access:
+  - `process.env.NEXT_PUBLIC_SUPABASE_URL`
+  - `process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+2. **Google login error: `Unsupported provider`**
+- Problem: OAuth flow returned provider-not-enabled error.
+- Cause: Google provider disabled in Supabase Auth settings.
+- Fix: Enabled Google provider and configured OAuth redirect URLs.
+
+3. **`PGRST205` table not found in schema cache**
+- Problem: App queries failed for `public.bookmarks`.
+- Cause: SQL file existed locally but migration was not applied to project DB.
+- Fix: Added proper Supabase migration and applied it with SQL Editor / `db push`.
+
+4. **Realtime not updating reliably across tabs**
+- Problem: Multi-tab update could fail when Realtime config/state was inconsistent.
+- Fix: Kept Supabase Realtime and added `BroadcastChannel` fallback for same-browser tab sync.
+
+5. **UI/UX polish for assignment quality**
+- Problem: Basic starter UI looked generic.
+- Fix: Upgraded login/dashboard design, icon-based actions, profile header, theme toggle, and mobile responsiveness.
+
+## Interview Notes
+- Focused on separation of concerns:
+  - `services/` for data/API calls
+  - `hooks/` for state/realtime orchestration
+  - `components/` for UI
+- Prioritized production constraints:
+  - auth guard
+  - RLS-based privacy
+  - typed validation
+  - clear error and loading states
+
+## Future Improvements
+- Edit bookmark
+- Tagging and sorting
+- Pagination for large bookmark lists
+- E2E tests (Playwright)
+- CI checks (lint + typecheck + tests)
